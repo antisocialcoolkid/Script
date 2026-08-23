@@ -432,4 +432,432 @@ if executor_used == "Synapse Z" then
 
     run_service.RenderStepped:Connect(update_fov_circle)
 
-    -- janky but 
+    -- janky but works
+    function string_to_enum(string)
+        local newstring = string:gsub("Enum.KeyCode.","")
+        return Enum.KeyCode[newstring]
+    end 
+
+    local function save_config(path)
+        
+        local config = {
+            visuals_enabled = visuals_enabled,
+            show_boxes_enabled = show_boxes_enabled,
+            show_tracers_enabled = show_tracers_enabled,
+            show_names_enabled = show_names_enabled,
+            show_skeleton_enabled = show_skeleton_enabled,
+            show_view_line_enabled = show_view_line_enabled,
+            aimbot_enabled = aimbot_enabled,
+            aimbot_fov_size = aimbot_fov_size,
+            aimbot_aim_part = aimbot_aim_part,
+            aimbot_smoothness = aimbot_smoothness,
+            show_fov = show_fov,
+            aimbot_keybind = tostring(aimbot_keybind), -- json cant handle enums :/ (thanks gaps)
+            aimbot_smoothness_enabled = aimbot_smoothness_enabled,
+            aimbot_prediction_enabled = aimbot_prediction_enabled,
+            aimbot_prediction_strength_x = aimbot_prediction_strength_x,
+            aimbot_prediction_strength_y = aimbot_prediction_strength_y,
+            aimbot_sticky_aim_enabled = aimbot_sticky_aim_enabled
+        }
+        print("saving..",aimbot_keybind)
+        local config_string = game:GetService("HttpService"):JSONEncode(config)
+        writefile(path, config_string)
+    end
+
+    local function load_config(path)
+        if isfile(path) then
+            local config_string = readfile(path)
+            local config = game:GetService("HttpService"):JSONDecode(config_string)
+            visuals_enabled = config.visuals_enabled
+            show_boxes_enabled = config.show_boxes_enabled
+            show_tracers_enabled = config.show_tracers_enabled
+            show_names_enabled = config.show_names_enabled
+            show_skeleton_enabled = config.show_skeleton_enabled
+            show_view_line_enabled = config.show_view_line_enabled
+            aimbot_enabled = config.aimbot_enabled
+            aimbot_fov_size = config.aimbot_fov_size
+            aimbot_aim_part = config.aimbot_aim_part
+            aimbot_smoothness = config.aimbot_smoothness
+            show_fov = config.show_fov
+            aimbot_keybind = string_to_enum(config.aimbot_keybind)
+            aimbot_smoothness_enabled = config.aimbot_smoothness_enabled
+            aimbot_prediction_enabled = config.aimbot_prediction_enabled
+            aimbot_prediction_strength_x = config.aimbot_prediction_strength_x
+            aimbot_prediction_strength_y = config.aimbot_prediction_strength_y
+            aimbot_sticky_aim_enabled = config.aimbot_sticky_aim_enabled
+            toggle_visuals(visuals_enabled)
+            --toggle_aimbot(aimbot_enabled) -- useless
+        end
+    end
+
+    local function loop_behind(target_player)
+        teleporting = true
+        local player = players_service.LocalPlayer
+    
+        while teleporting do
+            local target_character = target_player.Character
+            local target_humanoid_root_part = target_character and target_character:FindFirstChild("HumanoidRootPart")
+            local player_character = player.Character
+            local player_humanoid_root_part = player_character and player_character:FindFirstChild("HumanoidRootPart")
+    
+            if player_humanoid_root_part and target_humanoid_root_part then
+                local target_cframe = target_humanoid_root_part.CFrame
+                local target_look_vector = target_cframe.LookVector
+                local target_position = target_cframe.Position
+                local new_position =
+                    target_position - (target_look_vector * tp_behind_offset) + Vector3.new(0, tp_behind_height, 0)
+                player_humanoid_root_part.CFrame = CFrame.new(new_position, new_position + target_look_vector)
+            end
+    
+            task.wait()
+        end
+    end
+
+    -- noclip code credit to https://scriptblox.com/script/Universal-Script-Noclip-5473
+    local Noclip = nil
+    local Clip = nil
+    
+    function noclip()
+        Clip = false
+        local function Nocl()
+            if Clip == false and players_service.LocalPlayer.Character ~= nil then
+                for _,v in pairs(players_service.LocalPlayer.Character:GetDescendants()) do
+                    if v:IsA('BasePart') and v.CanCollide and v.Name ~= floatName then
+                        v.CanCollide = false
+                    end
+                end
+            end
+            wait(0.21) -- basic optimization
+        end
+        Noclip = game:GetService('RunService').Stepped:Connect(Nocl)
+    end
+    
+    function clip()
+        if Noclip then Noclip:Disconnect() end
+        Clip = true
+    end
+
+    -- fluent lib stuff
+    local Fluent =
+        loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
+
+    -- creating window & tabs
+    local Window =
+        Fluent:CreateWindow(
+        {
+            Title = "Disrupt",
+            SubTitle = "   v0.8",
+            TabWidth = 160,
+            Size = UDim2.fromOffset(580, 460),
+            Acrylic = true, -- possible dtc, change to false if script gets dtc
+            Theme = "Dark",
+            MinimizeKey = Enum.KeyCode.LeftControl
+        }
+    )
+
+    local Tabs = {
+        aimbot_tab = Window:AddTab({Title = "Aimbot", Icon = ""}),
+        visuals_tab = Window:AddTab({Title = "Visuals", Icon = ""}),
+        player_tab = Window:AddTab({Title = "Player", Icon = ""}),
+        teleport_tab = Window:AddTab({Title = "Teleport", Icon = ""}),
+        config_tab = Window:AddTab({Title = "Configs", Icon = ""})
+    }
+
+    do
+        -- aimbot tab
+        local enable_aimbot_cb = Tabs.aimbot_tab:AddToggle("EnableAimbot", {Title = "Enable", Default = false})
+        enable_aimbot_cb:OnChanged(
+            function(value)
+                aimbot_enabled = value
+            end
+        )
+
+        local show_fov_cb = Tabs.aimbot_tab:AddToggle("ShowFovCheckbox", {Title = "Show FOV", Default = false})
+        show_fov_cb:OnChanged(
+            function(value)
+                show_fov = value
+            end
+        )
+
+        local smoothness_cb = Tabs.aimbot_tab:AddToggle("SmoothnessCheckbox", {Title = "Smoothness", Default = false})
+        smoothness_cb:OnChanged(
+            function(value)
+                aimbot_smoothness_enabled = value
+            end
+        )
+
+        local enable_prediction_cb =
+            Tabs.aimbot_tab:AddToggle("EnablePrediction", {Title = "Enable Prediction", Default = false})
+        enable_prediction_cb:OnChanged(
+            function(value)
+                aimbot_prediction_enabled = value
+            end
+        )
+
+        local sticky_aim_cb = Tabs.aimbot_tab:AddToggle("StickyAimCheckbox", {Title = "Sticky Aim", Default = false})
+        sticky_aim_cb:OnChanged(
+            function(value)
+                aimbot_sticky_aim_enabled = value
+            end
+        )
+
+        local aimbot_kb = Tabs.aimbot_tab:AddKeybind("Keybind", {
+            Title = "Keybind",
+            Mode = "Toggle",
+            Default = "MouseButton2",
+        
+            ChangedCallback = function(New)
+                -- kind of a shitty way to do it but this library is kinda terrible
+                if New == Enum.KeyCode.Unknown then
+                    aimbot_keybind = Enum.UserInputType.MouseButton2
+                else
+                    aimbot_keybind = New
+                end
+            end
+        })
+
+        local aim_at_dropdown =
+            Tabs.aimbot_tab:AddDropdown(
+            "AimPartDropDown",
+            {
+                Title = "Aim At",
+                Values = {"Head", "HumanoidRootPart"},
+                Multi = false,
+                Default = 1,
+                Callback = function(value)
+                    aimbot_aim_part = value
+                end
+            }
+        )
+    
+        local fov_size_slider =
+            Tabs.aimbot_tab:AddSlider(
+            "FovSizeSlider",
+            {
+                Title = "FOV Size",
+                Default = 50,
+                Min = 0,
+                Max = 100,
+                Rounding = 0,
+                Callback = function(value)
+                    aimbot_fov_size = value
+                end
+            }
+        )
+
+        local smoothness_slider =
+            Tabs.aimbot_tab:AddSlider(
+            "SmoothnessSlider",
+            {
+                Title = "Smoothness",
+                Default = 0,
+                Min = 0,
+                Max = 10,
+                Rounding = 1,
+                Callback = function(value)
+                    aimbot_smoothness = value
+                end
+            }
+        )
+
+        local prediction_strength_x_slider =
+            Tabs.aimbot_tab:AddSlider(
+            "PredictionStrengthXSlider",
+            {
+                Title = "Prediction Strength X",
+                Default = 0,
+                Min = 0,
+                Max = 1,
+                Rounding = 2,
+                Callback = function(value)
+                    aimbot_prediction_strength_x = value
+                end
+            }
+        )
+
+        local prediction_strength_y_slider =
+            Tabs.aimbot_tab:AddSlider(
+            "PredictionStrengthYSlider",
+            {
+                Title = "Prediction Strength Y",
+                Default = 0,
+                Min = 0,
+                Max = 1,
+                Rounding = 2,
+                Callback = function(value)
+                    aimbot_prediction_strength_y = value
+                end
+            }
+        )
+
+        -- visuals tab
+        local enable_visuals_cb = Tabs.visuals_tab:AddToggle("EnableVisuals", {Title = "Enable", Default = false})
+        enable_visuals_cb:OnChanged(
+            function(value)
+                toggle_visuals(value)
+            end
+        )
+
+        local enable_boxes_cb = Tabs.visuals_tab:AddToggle("EnableBoxes", {Title = "Boxes", Default = false})
+        enable_boxes_cb:OnChanged(
+            function(value)
+                show_boxes_enabled = value
+            end
+        )
+
+        local enable_tracers_cb = Tabs.visuals_tab:AddToggle("EnableTracers", {Title = "Tracers", Default = false})
+        enable_tracers_cb:OnChanged(
+            function(value)
+                show_tracers_enabled = value
+            end
+        )
+
+        local enable_names_cb = Tabs.visuals_tab:AddToggle("EnableNames", {Title = "Names", Default = false})
+        enable_names_cb:OnChanged(
+            function(value)
+                show_names_enabled = value
+            end
+        )
+
+        local skeleton_esp_cb = Tabs.visuals_tab:AddToggle("SkeletonESP", {Title = "Skeleton", Default = false})
+        skeleton_esp_cb:OnChanged(
+            function(value)
+                show_skeleton_enabled = value
+            end
+        )
+
+        local view_line_esp_cb = Tabs.visuals_tab:AddToggle("ViewLineESP", {Title = "View Line", Default = false})
+        view_line_esp_cb:OnChanged(
+            function(value)
+                show_view_line_enabled = value
+            end
+        )
+
+        -- config tab
+        local config_file_input =
+            Tabs.config_tab:AddInput(
+            "ConfigFileInput",
+            {
+                Title = "Config Path",
+                Default = "config.json",
+                Numeric = false,
+                Finished = false,
+                Callback = function(value)
+                    config_file_path = value
+                end
+            }
+        )
+
+        Tabs.config_tab:AddButton(
+            {
+                Title = "Save Config",
+                Callback = function()
+                    save_config(config_file_path or "config.json")
+                end
+            }
+        )
+
+        Tabs.config_tab:AddButton(
+            {
+                Title = "Load Config",
+                Callback = function()
+                    load_config(config_file_path or "config.json")
+                end
+            }
+        )
+
+        -- teleporting tab
+        local teleport_target_input =
+            Tabs.teleport_tab:AddInput(
+            "TargetNameInput",
+            {
+                Title = "Player Name",
+                Default = "",
+                Numeric = false,
+                Finished = true,
+                Callback = function(input_value)
+                    local input_value_lower = input_value
+                    local matching_player = nil
+
+                    -- matching name from input
+                    for _, player in ipairs(players_service:GetPlayers()) do
+                        local player_name = player.Name and player.Name or ""
+                        local player_display_name = player.DisplayName and player.DisplayName or ""
+
+                        if
+                            player_name:find(input_value_lower, 1, true) or
+                                player_display_name:find(input_value_lower, 1, true)
+                         then
+                            matching_player = player
+                            break
+                        end
+                    end
+
+                    selected_player = matching_player
+                end
+            }
+        )
+
+        Tabs.teleport_tab:AddButton(
+            {
+                Title = "Loop Teleport To Player",
+                Callback = function()
+                    if selected_player then
+                        loop_behind(selected_player)
+                    end
+                end
+            }
+        )
+
+        Tabs.teleport_tab:AddButton(
+            {
+                Title = "Stop Teleporting To Player",
+                Callback = function()
+                    teleporting = false
+                end
+            }
+        )
+
+        -- player tab
+        local enable_noclip_cb = Tabs.player_tab:AddToggle("EnableNoclip", {Title = "Noclip", Default = false})
+        enable_noclip_cb:OnChanged(
+            function(value)
+                if value then
+                    noclip()
+                else
+                    clip()
+                end
+            end
+        )
+
+        local enable_speed_cb = Tabs.player_tab:AddToggle("EnableFly", {Title = "Enable Speed", Default = false})
+        enable_speed_cb:OnChanged(
+            function(value)
+                speed_modifier_enabled = value
+                if speed_modifier_enabled then
+                    repeat
+                        players_service.LocalPlayer.Character.HumanoidRootPart.CFrame = players_service.LocalPlayer.Character.HumanoidRootPart.CFrame + players_service.LocalPlayer.Character.Humanoid.MoveDirection * speed_multiplier
+                        game:GetService("RunService").Stepped:wait()
+                    until not speed_modifier_enabled
+                end
+            end
+        )
+
+        local walkspeed_multi_slider =
+            Tabs.player_tab:AddSlider(
+            "WalkspeedSlider",
+            {
+                Title = "Walkspeed",
+                Default = 0,
+                Min = 0,
+                Max = 0.7,
+                Rounding = 1,
+                Callback = function(value)
+                    speed_multiplier = value
+                end
+            }
+        )
+    end
+
+    Window:SelectTab(1)
+end
